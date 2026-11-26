@@ -10,6 +10,7 @@ set (local runs). Deterministic: the same bytes every run, no network,
 no randomness.
 """
 
+import hashlib
 import os
 import shutil
 from pathlib import Path
@@ -17,10 +18,22 @@ from pathlib import Path
 SOURCE = Path(__file__).resolve().parent / "entry.png"
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def main() -> None:
     out_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
     out_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(SOURCE, out_dir / "entry.png")
+    dest = out_dir / "entry.png"
+    shutil.copyfile(SOURCE, dest)
+    if _sha256(SOURCE) != _sha256(dest):
+        raise SystemExit("entry.png copy failed integrity check")
+    print(f"wrote {dest} ({dest.stat().st_size} bytes)")
 
 
 if __name__ == "__main__":
